@@ -1,0 +1,141 @@
+{% extends "template.html" %}
+{% block content %}
+    <h1 class="page-header">
+        Edit Movie
+    </h1>
+    <form class="form-horizontal" action="#" method="POST">
+        <div class="form-group">
+            <label class="col-lg-2 control-label" for="inputTitle">Title</label>
+            <div class="col-lg-9">
+                <input class="form-control" id="inputTitle" name="title" value="{{movie.title}}" placeholder="e.g. Kingsman: The Secret Service" type="text">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-lg-2 control-label" for="inputTMDB">TMDB ID</label>
+            <div class="col-lg-9">
+                <input class="form-control" id="inputTMDB" name="tmdbID" value="{{movie.tmdb_id}}" placeholder="e.g. 207703" type="text">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-lg-2 control-label" for="inputIMDB">IMDb ID</label>
+            <div class="col-lg-9">
+                <input class="form-control" id="inputIMDB" name="imdbID" value="{{imdb_id}}" placeholder="e.g. tt2802144" type="text">
+            </div>
+        </div>
+        <div class="form-group" id="inputForm">
+            <label class="col-lg-2 control-label" for="inputOverview">Overview</label>
+            <div class="col-lg-9">
+                <textarea class="form-control" id="inputOverview" name="overview" value="{{movie.overview}}" placeholder="e.g. Kingsman: The Secret Service tells the story of a super-secret spy organization that recruits an unrefined but promising street kid into the agency's ultra-competitive training program just as a global threat emerges from a twisted tech genius." rows="3"></textarea>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-lg-2 control-label" for="inputPoster">Poster url</label>
+            <div class="col-lg-9">
+                <div class="input-group">
+                    <input class="form-control" id="inputPoster" name="poster" value="{{movie.poster}}" placeholder="e.g. https://image.tmdb.org/t/p/w185/kqjL17yufvn9OVLyXYpvtyrFfak.jpg" type="text">
+                    <span class="input-group-btn">
+                        <button class="btn btn-primary" id="poster-preview-btn" type="button">Preview</button>
+                    </span>
+                </div><!-- /input-group -->
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-lg-2 control-label" for="inputYoutubeID">YouTube ID</label>
+            <div class="col-lg-9">
+                <div class="input-group">
+                    <input class="form-control" id="inputYoutubeID" name="youtubeID" value="{{movie.youtube_id}}" placeholder="e.g. kl8F-8tR8to" type="text">
+                    <span class="input-group-btn">
+                        <button class="btn btn-primary" id="youtube-preview-btn" type="button">Preview</button>
+                    </span>
+                </div><!-- /input-group -->
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-lg-2 control-label" for="inputGenre">Genre</label>
+            <div class="col-lg-10" id="inputGenre">
+                <div class="row" id="inputGenre">
+                    {% for genre in genres %}
+                    <div class="col-lg-3 col-md-4 col-sm-6">
+                        <label><input type="checkbox" value="{{genre.id}}" id="genre-{{genre.id}}" name="genres" {% if genre.id in current_genre_ids %} checked {% endif %}> {{genre.genre}}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-lg-2 control-label" for="inputReleaseDate">Release Date</label>
+            <div class="col-lg-9">
+                <input class="form-control" id="inputReleaseDate" name="releaseDate" value="{{movie.release_date}}" placeholder="e.g. 2015-02-13" type="text">
+            </div>
+        </div>
+        <center>
+            <button type="submit" class="btn btn-primary" id="submit">Submit</button>
+        </center>
+    </form>
+
+    <!-- Image Preview Modal -->
+    <div class="modal fade" id="image-preview" tabindex="-1" role="dialog" aria-labelledby="imagePreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                    <h4 class="modal-title" id="imagePreviewModalLabel">Poster preview</h4>
+                </div>
+                <div class="modal-body" id="image-preview-body">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Youtube Preview Modal -->
+    <div class="modal fade" id="youtube-preview" tabindex="-1" role="dialog" aria-labelledby="youtubePreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                    <h4 class="modal-title" id="youtubePreviewModalLabel">Trailer preview</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="embed-responsive embed-responsive-16by9" id="youtube-preview-body">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block script %}
+<script>
+$(function() {
+    // Open image preview modal when poster preview button is pressed
+    $('#poster-preview-btn').click(function(e) {
+        var $modalBody = $('#image-preview-body');
+        $modalBody.empty();
+        var src = $('#inputPoster').val();
+        if (!src.startsWith('http')) {
+            src = 'http://' + src;
+        }
+        var $previewImg = $('<center><img src="' + src + '" class="img-responsive"></center>')
+        $modalBody.append($previewImg);
+        $('#image-preview').modal('show');
+    });
+    // Open video preview modal when Youtube preview button is pressed
+    $('#youtube-preview-btn').click(function(e) {
+        var $modalBody = $('#youtube-preview-body');
+        $modalBody.empty();
+        var sourceUrl = 'http://www.youtube.com/embed/' + $('#inputYoutubeID').val() + '?autoplay=1&html5=1';
+        $modalBody.append($("<iframe></iframe>", {
+            'id': 'trailer-video',
+            'type': 'text-html',
+            'src': sourceUrl,
+            'frameborder': 0
+        }));
+        $('#youtube-preview').modal('show');
+    });
+    // Remove youtube preview when modal is closed
+    $('#youtube-preview').on('hidden.bs.modal', function (e) {
+        $('#youtube-preview-body').empty();
+    });
+});
+</script>
+{% endblock %}

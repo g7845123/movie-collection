@@ -1,0 +1,20 @@
+{% extends "template.html" %}
+{% block content %}
+    <h1 class="page-header">
+        {{current_genre}}
+        <a href="/movie/new" class="btn btn-success">
+            <span class="glyphicon glyphicon-plus"></span> New movie
+        </a>
+    </h1>
+    {% if not movies %}
+    <div class="no-movie-found">No Movie in {{current_genre}}</div>
+    {% endif %}
+    {% for movie in movies %}
+    <a href="/movie/{{movie.id}}" class="movie-tile-a">
+        <div class="col-md-6 col-lg-4 movie-tile text-center">
+            <img src="{{movie.poster}}" width="220" height="342">
+            <h2>{{movie.title}}</h2>
+        </div>
+    </a>
+    {% endfor %}
+{% endblock %}

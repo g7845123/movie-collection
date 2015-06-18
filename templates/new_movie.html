@@ -1,0 +1,287 @@
+{% extends "template.html" %}
+{% block content %}
+    <h1 class="page-header">
+        New Movie
+    </h1>
+    <h2>Autofill with <a href="https://www.themoviedb.org/">themoviedb.org</a></h2>
+    <div class="row">
+        <div class="col-md-offset-1 col-lg-10">
+            <div class="input-group" id="tmdb-searchbar">
+                <input type="text" class="form-control" id="tmdb-searchbar-title" Value="toy story">
+                <span class="input-group-btn">
+                    <button class="btn btn-primary" type="button" id="tmdb-searchbar-btn"><span class="glyphicon glyphicon-search"></span></button>
+                </span>
+            </div><!-- /input-group -->
+            <div id="results-from-tmdb">
+            </div>
+        </div>
+    </div>
+    <hr>
+    <h2 id="movie-detail-result">Movie Info</h2>
+    <form class="form-horizontal" id="new-movie-form" action="#" method="POST">
+        <div class="form-group">
+            <label class="col-lg-2 control-label" for="inputTitle">Title</label>
+            <div class="col-lg-9">
+                <input class="form-control" id="inputTitle" name="title" placeholder="e.g. Kingsman: The Secret Service" type="text">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-lg-2 control-label" for="inputTMDB">TMDB ID</label>
+            <div class="col-lg-9">
+                <input class="form-control" id="inputTMDB" name="tmdbID" placeholder="e.g. 207703" type="text">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-lg-2 control-label" for="inputIMDB">IMDb ID</label>
+            <div class="col-lg-9">
+                <input class="form-control" id="inputIMDB" name="imdbID" placeholder="e.g. tt2802144" type="text">
+            </div>
+        </div>
+        <div class="form-group" id="inputForm">
+            <label class="col-lg-2 control-label" for="inputOverview">Overview</label>
+            <div class="col-lg-9">
+                <textarea class="form-control" id="inputOverview" name="overview" placeholder="e.g. Kingsman: The Secret Service tells the story of a super-secret spy organization that recruits an unrefined but promising street kid into the agency's ultra-competitive training program just as a global threat emerges from a twisted tech genius." rows="3"></textarea>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-lg-2 control-label" for="inputPoster">Poster url</label>
+            <div class="col-lg-9">
+                <div class="input-group">
+                    <input class="form-control" id="inputPoster" name="poster" placeholder="e.g. https://image.tmdb.org/t/p/w185/kqjL17yufvn9OVLyXYpvtyrFfak.jpg" type="text">
+                    <span class="input-group-btn">
+                        <button class="btn btn-primary" id="poster-preview-btn" type="button">Preview</button>
+                    </span>
+                </div><!-- /input-group -->
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-lg-2 control-label" for="inputYoutubeID">YouTube ID</label>
+            <div class="col-lg-9">
+                <div class="input-group">
+                    <input class="form-control" id="inputYoutubeID" name="youtubeID" placeholder="e.g. kl8F-8tR8to" type="text">
+                    <span class="input-group-btn">
+                        <button class="btn btn-primary" id="youtube-preview-btn" type="button">Preview</button>
+                    </span>
+                </div><!-- /input-group -->
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-lg-2 control-label" for="inputGenre">Genre</label>
+            <div class="col-lg-10" id="inputGenre">
+                <div class="row" id="inputGenre">
+                    {% for genre in genres %}
+                    <div class="col-lg-3 col-md-4 col-sm-6">
+                        <label><input type="checkbox" value="{{genre.id}}" id="genre-{{genre.id}}" name="genres"> {{genre.genre}}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-lg-2 control-label" for="inputReleaseDate">Release Date</label>
+            <div class="col-lg-9">
+                <input class="form-control" id="inputReleaseDate" name="releaseDate" placeholder="e.g. 2015-02-13" type="text">
+            </div>
+        </div>
+        <center>
+            <button type="submit" class="btn btn-primary" id="submit">Submit</button>
+        </center>
+    </form>
+
+    <!-- Image Preview Modal -->
+    <div class="modal fade" id="image-preview" tabindex="-1" role="dialog" aria-labelledby="imagePreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                    <h4 class="modal-title" id="imagePreviewModalLabel">Poster preview</h4>
+                </div>
+                <div class="modal-body" id="image-preview-body">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Youtube Preview Modal -->
+    <div class="modal fade" id="youtube-preview" tabindex="-1" role="dialog" aria-labelledby="youtubePreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                    <h4 class="modal-title" id="youtubePreviewModalLabel">Trailer preview</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="embed-responsive embed-responsive-16by9" id="youtube-preview-body">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block script %}
+
+<!-- A brief tour to get user familiar with autofill functionality -->
+<script src="{{url_for('static', filename='js/bootstrap-tour.js')}}"></script>
+
+<script>
+function fetchMovieList() {
+    var $movieTitle = $('#tmdb-searchbar-title');
+    var $movieBtn = $('#tmdb-searchbar-btn');
+    var $result = $('#results-from-tmdb');
+    // Disable search button to prevent duplicate AJAX
+    $movieTitle.prop('disabled', true);
+    $movieBtn.prop('disabled', true);
+    // Let user know that AJAX is in progress
+    $result.text('Searching...');
+    var queryText = $movieTitle.val();
+    // Search themoviedb.org
+    var tmdbUrl = 'http://api.themoviedb.org/3/search/movie?api_key=407133ea196ce7efa62e2619d865e21b&query=' + queryText
+    $.getJSON(tmdbUrl, function(data) {
+        $result.empty()
+        var $movieList = $('<div class="list-group" id="movie-list"></div>');
+        $result.append($movieList);
+        var movies = data.results;
+        var max_num = Math.min(movies.length, 10);
+        // Iterate through all movies that matches user's input. Then generate an <li> for each of them
+        for(var i=0; i<max_num; i++) {
+            var movie = movies[i];
+            var $movieEle = $('<a href="#inputForm"><div class="list-group-item movie-list-item"><h4 class="list-group-item-heading">' + movie.original_title + ' <small>' + movie.release_date + '</small></h4><p class="list-group-item-text">' + movie.overview + '</p></div></a>');
+            $movieList.append($movieEle);
+            // When <li> is clicked, send another AJAX to themoviedb.org to fetch detailed information
+            $movieEle.click((function(movie_id) {
+                return function() {
+                    fetchMovieDetail(movie_id);
+                }
+            })(movie.id));
+        }
+        // Enable search button after previous AJAX is done
+        $movieTitle.prop('disabled', false)
+        $movieBtn.prop('disabled', false);
+    }).error(function (errorMessage) {
+        $result.empty();
+        $result.text('The Movie DB Could Not Be Loaded');
+        $movieTitle.prop('disabled', false)
+        $movieBtn.prop('disabled', false);
+    });
+}
+
+function fetchMovieDetail(tmdb_id) {
+    // console.log(tmdb_id);
+    var tmdbUrl = 'http://api.themoviedb.org/3/movie/' + tmdb_id + '?api_key=407133ea196ce7efa62e2619d865e21b&append_to_response=videos';
+    var $result = $('#movie-detail-result');
+    // Let user know that AJAX is in progress
+    $result.text('Movie Info Autofilling...');
+    $.getJSON(tmdbUrl, function(data) {
+        // console.log(data);
+        $result.text('Movie Info Autofilled');
+        // Autofill the form with movie information with AJAX response from themoviedb.org
+        $('#inputTitle').val(data.original_title);
+        $('#inputTMDB').val(data.id);
+        $('#inputIMDB').val(data.imdb_id);
+        $('#inputOverview').val(data.overview);
+        if(data.poster_path) {
+            $('#inputPoster').val('https://image.tmdb.org/t/p/w185' + data.poster_path);
+        }
+        var trailers = data.videos.results;
+        for(var i=0; i<trailers.length; i++) {
+            var trailer = trailers[i];
+            if(trailer.site=='YouTube') {
+                $('#inputYoutubeID').val(trailer.key);
+                break;
+            }
+        }
+        var genres = data.genres;
+        for(var i=0; i<genres.length; i++) {
+            var genre = genres[i];
+            $('#genre-'+genre.id).prop('checked', true);
+        }
+        if(data.release_date) {
+            $('#inputReleaseDate').val(data.release_date);
+        }
+    }).error(function (errorMessage) {
+        $result.empty();
+        $result.text('Autofill Failed');
+    });
+}
+
+$(function() {
+    // Listen search button and Enter press
+    $('#tmdb-searchbar-btn').click(fetchMovieList);
+    $('#tmdb-searchbar-title').keypress(function(e) {
+        var key = e.which;
+        if(key == 13) {
+            fetchMovieList();
+        };
+    });
+    // Open image preview modal when poster preview button is pressed
+    $('#poster-preview-btn').click(function(e) {
+        var $modalBody = $('#image-preview-body');
+        $modalBody.empty();
+        var src = $('#inputPoster').val();
+        if (!src.startsWith('http')) {
+            src = 'http://' + src;
+        }
+        var $previewImg = $('<center><img src="' + src + '" class="img-responsive"></center>')
+        $modalBody.append($previewImg);
+        $('#image-preview').modal('show');
+    });
+    // Open video preview modal when Youtube preview button is pressed
+    $('#youtube-preview-btn').click(function(e) {
+        var $modalBody = $('#youtube-preview-body');
+        $modalBody.empty();
+        var sourceUrl = 'http://www.youtube.com/embed/' + $('#inputYoutubeID').val() + '?autoplay=1&html5=1';
+        $modalBody.append($("<iframe></iframe>", {
+            'id': 'trailer-video',
+            'type': 'text-html',
+            'src': sourceUrl,
+            'frameborder': 0
+        }));
+        $('#youtube-preview').modal('show');
+    });
+    // Remove youtube preview when modal is closed
+    $('#youtube-preview').on('hidden.bs.modal', function (e) {
+        $('#youtube-preview-body').empty();
+    });
+
+    // Will guild user how to use autofill functionality
+    var tour = new Tour({
+        // The tour will appear everytime in this page. Uncomment for debugging
+        // storage: false, 
+        steps: [
+        {
+            element: '#tmdb-searchbar',
+            placement: 'bottom', 
+            title: 'Autofill Step 1',
+            content: 'To autofill the movie form, search movie title here', 
+            backdrop: true, 
+            onNext: function() {fetchMovieList()}
+        },
+        {
+            element: '#results-from-tmdb',
+            placement: 'top', 
+            title: 'Autofill Step 2',
+            content: 'Click one of the movie entry to autofill with information of that movie', 
+            backdrop: true, 
+            // Disable 'next' button to force user click as expected
+            template: '<div class="popover" role="tooltip"> <div class="arrow"></div> <h3 class="popover-title"></h3> <div class="popover-content"></div> <div class="popover-navigation"> <div class="btn-group"> <button class="btn btn-sm btn-default" data-role="prev">&laquo; Prev</button> <button class="btn btn-sm btn-default" data-role="next" disabled>Next &raquo;</button> <button class="btn btn-sm btn-default" data-role="pause-resume" data-pause-text="Pause" data-resume-text="Resume">Pause</button> </div> <button class="btn btn-sm btn-default" data-role="end" disabled>End tour</button> </div> </div>',
+            reflex: true
+        },
+        {
+            element: '#new-movie-form',
+            placement: 'top', 
+            title: 'Autofill Step 3',
+            content: 'The form should now be autofilled, you may also customize it before submit', 
+            backdrop: true
+        }
+    ]});
+
+    // Initialize the tour
+    tour.init();
+
+    // Start the tour
+    tour.start();
+});
+
+</script>
+{% endblock %}

@@ -1,0 +1,18 @@
+<h5>Poster</h5>
+<img src="{{movie.poster}}">
+<h5>Overview</h5>
+<p>{{movie.overview}}</p>
+<h5>Genres</h5>
+<ul>
+    {% for genre in current_genres %}
+    <li>{{genre}}</li>
+    {% endfor%}
+</ul>
+<h5>External Link</h5>
+<ul>
+    <li><a href="https://www.themoviedb.org/movie/{{movie.tmdb_id}}">Info on TMDB</a></li>
+    <li><a href="http://www.imdb.com/title/{{movie.imdb_id}}">Info on IMDb</a>
+    <li><a href="http://www.youtube.com/embed/{{movie.youtube_id}}">Trailer on YouTube</a></li>
+</ul>
+<h5>Release Date</h5>
+<p>{{movie.release_date}}</p>
