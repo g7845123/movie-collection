@@ -5,7 +5,7 @@ import requests
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from database_setup import Base, User, Movie, Genre, MovieGenre
+from database_setup import Base, User, Movie, Genre
 
 engine = create_engine('sqlite:///moviecollection.db')
 # Bind the engine to the metadata of the Base class so that the
@@ -80,6 +80,9 @@ for idx, movie in enumerate(movies):
     release_date = movie_detail.get('release_date')
     if release_date:
         release_date = datetime.strptime(release_date, '%Y-%m-%d')
+    genres = movie_detail['genres']
+    genre_ids = [e['id'] for e in genres]
+    current_genres = session.query(Genre).filter(Genre.id.in_(genre_ids)).all()
     movie_new = Movie(
         tmdb_id = movie_detail['id'], 
         imdb_id = movie_detail.get('imdb_id'), 
@@ -88,12 +91,11 @@ for idx, movie in enumerate(movies):
         youtube_id = youtube_id, 
         overview = movie_detail.get('overview'), 
         release_date = release_date, 
+        genres = current_genres, 
         user = user1)
     session.add(movie_new)
-    genres = movie_detail['genres']
-    for genre in genres:
-        moviegenre_new = MovieGenre(movie=movie_new, genre_id=genre['id'])
-        session.add(moviegenre_new)
     session.commit()
 
+# movie = session.query(Movie).first()
+# print movie.serialize
 print "Data added"

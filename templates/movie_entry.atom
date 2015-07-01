@@ -4,8 +4,8 @@
 <p>{{movie.overview}}</p>
 <h5>Genres</h5>
 <ul>
-    {% for genre in current_genres %}
-    <li>{{genre}}</li>
+    {% for genre in movie.genres %}
+    <li>{{genre.genre}}</li>
     {% endfor%}
 </ul>
 <h5>External Link</h5>

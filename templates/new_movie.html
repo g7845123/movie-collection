@@ -86,6 +86,8 @@
         <center>
             <button type="submit" class="btn btn-primary" id="submit">Submit</button>
         </center>
+        <!-- This CSRF token will be checked by the backend -->
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     </form>
 
     <!-- Image Preview Modal -->

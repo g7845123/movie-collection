@@ -7,11 +7,31 @@ In this project, I developed a website named "Movie Collection" essentially from
 In addition to the basic requirements, I implememted several extra features:
 
 * Form autofill functionality using Ajax request to themoviedb.org facilitates the adding of a new movie
-* Atom API endpoint was implemented apart from JSON
-* Deletion was implemented using POST request and nonces to prevent cross-site request forgeries (CSRF)
+* XML and Atom API endpoints are implemented apart from JSON
+* CSRF token are included for all POST requests
 * Most of the pages are responsive and compatible to devices of different screen size
 
+# Live demo
+
 Live demo is available [here](http://cheng-lab.tk:50002/)
+
+# Package Dependency
+
+The following script may help you configure your environment
+
+```sh
+$ apt-get -qqy install python-sqlalchemy
+$ apt-get -qqy install python-pip
+$ pip install werkzeug==0.8.3
+$ pip install flask==0.9
+$ pip install oauth2client
+$ pip install requests
+$ pip install httplib2
+$ pip install dict2xml
+$ pip install flask-seasurf
+```
+
+Please note: Other package version, e.g. higher flask version, should also work, though not tested
 
 # Usage
 
@@ -24,6 +44,7 @@ Live demo is available [here](http://cheng-lab.tk:50002/)
     $ vagrant ssh
     $ cd path/to/project/folder
     ```
+1. Configure Vagrant. See 'Dependency' part for detail
 1. Initialize database
 
     ```sh
@@ -40,6 +61,12 @@ Live demo is available [here](http://cheng-lab.tk:50002/)
     $ python moviecollection.py
     ```
 1. Open http://localhost:5000/ in browser
+
+# API Endpoints
+
+* JSON: /movies/JSON
+* XML:  /movies/XML
+* Atom: /movies/ATOM
 
 # References
 

@@ -190,6 +190,9 @@
     <!-- Bootstrap Core JavaScript -->
     <script src="{{url_for('static', filename='js/bootstrap.min.js')}}"></script>
 
+    <!-- Custom Golbal JavaScript -->
+    <script src="{{url_for('static', filename='js/movie.js')}}"></script>
+
     <!--LOAD PRE-REQUISITES FOR GOOGLE SIGN IN -->
     <script src="https://apis.google.com/js/client:platform.js?onload=start" async defer></script>
 
@@ -221,7 +224,7 @@
         // Send the code to the server
         $.ajax({
           type: 'POST',
-          url: '/gconnect?state={{state}}',
+          url: '/gconnect',
           contentType: 'application/octet-stream; charset=utf-8',
           success: function(result) {
             // Handle or verify the server response.

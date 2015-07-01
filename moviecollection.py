@@ -1,23 +1,30 @@
-from flask import Flask, render_template, request, redirect, jsonify, url_for, flash
-from werkzeug.contrib.atom import AtomFeed
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask import session as login_session
-from flask import make_response
+from flask import make_response, jsonify
+from flask.ext.seasurf import SeaSurf
+
 import json
+from dict2xml import dict2xml as xmlify
+from werkzeug.contrib.atom import AtomFeed
 
 from sqlalchemy import create_engine, desc, func
 from sqlalchemy.orm import sessionmaker
-from database_setup import Base, User, Movie, Genre, MovieGenre
+from database_setup import Base, User, Movie, Genre
 
 import requests
 import random
 import string
 from oauth2client.client import flow_from_clientsecrets
 from oauth2client.client import FlowExchangeError
+from oauth2client.client import OAuth2Credentials
 import httplib2
 
 from datetime import datetime
+from functools import wraps
 
 app = Flask(__name__)
+# Use Flask-SeaSurf to include csrf_token for all POST requests
+csrf = SeaSurf(app)
 
 CLIENT_ID = json.loads(
     open('client_secrets.json', 'r').read())['web']['client_id']
@@ -32,12 +39,16 @@ session = DBSession()
 # genres will be used to create left-side nav bar
 genres = session.query(Genre)
 
-# Generate nonce to prevent CSRF
-def stateGenerator():
-    state = ''.join(random.choice(string.ascii_uppercase + string.digits)
-                    for x in xrange(32))
-    login_session['state'] = state
-    return state
+# Login required decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in login_session:
+            flash('Please login to perform this operation')
+            return redirect('/')
+        return f(*args, **kwargs)
+    return decorated_function
+
 
 # Show all movies ordered by their created time
 @app.route('/')
@@ -46,14 +57,11 @@ def showMovies():
     movies = session.query(Movie).order_by(desc(Movie.create_time)).all()
     # Login button will be available if user is not logged in
     if 'username' not in login_session:
-        # Generate nonce for login functionality
-        state = stateGenerator()
         return render_template('public_movies.html', 
                                movies = movies, 
                                genres = genres, 
                                current_genre = 'Recently Added', 
-                               CLIENT_ID = CLIENT_ID, 
-                               state = state)
+                               CLIENT_ID = CLIENT_ID)
     # User logged in will be able to add new movies
     else:
         return render_template('movies.html', 
@@ -67,30 +75,15 @@ def showMovies():
 # JSON API to list all movie information
 @app.route('/movies/JSON')
 def showMoviesJSON():
-    results = []
     movies = session.query(Movie).order_by(desc(Movie.create_time)).all()
-    for movie in movies:
-        # genre information is not part of Movie class, but stored in MovieGenre
-        # Thus join is necessary to get genres of a movie
-        current_genres = (session.query(Genre)
-                                 .join(MovieGenre, MovieGenre.genre_id==Genre.id)
-                                 .filter(MovieGenre.movie_id==movie.id)
-                                 .all())
-        current_genres = [e.genre for e in current_genres]
-        result = {
-            'id': movie.id, 
-            'tmdb_id': movie.tmdb_id, 
-            'imdb_id': movie.imdb_id, 
-            'title': movie.title, 
-            'poster': movie.poster, 
-            'youtube_id': movie.youtube_id, 
-            'overview': movie.overview, 
-            'release_date': str(movie.release_date), 
-            'genres': current_genres
-        }
-        results.append(result)
-    return jsonify(movies = results)
+    return jsonify(movies = [movie.serialize for movie in movies])
 
+
+# XML API to list all movie information
+@app.route('/movies/XML')
+def showMoviesXML():
+    movies = session.query(Movie).order_by(desc(Movie.create_time)).all()
+    return xmlify({'movies': [movie.serialize for movie in movies]})
 
 # ATOM API to list all movie information
 @app.route('/movies/ATOM')
@@ -103,14 +96,7 @@ def showMoviesATOM():
                      .limit(15)
                      .all())
     for movie in movies:
-        # genre information is not part of Movie class, but stored in MovieGenre
-        # Thus join is necessary to get genres of a movie
-        current_genres = (session.query(Genre)
-                                 .join(MovieGenre, MovieGenre.genre_id==Genre.id)
-                                 .filter(MovieGenre.movie_id==movie.id)
-                                 .all())
-        current_genres = [e.genre for e in current_genres]
-        content = render_template('movie_entry.atom', movie=movie, current_genres=current_genres)
+        content = render_template('movie_entry.atom', movie=movie)
         # Add feed entries
         feed.add(movie.title, 
                  content, 
@@ -123,30 +109,24 @@ def showMoviesATOM():
 # Show movies in a specific genre
 @app.route('/genre/<int:genre_id>/')
 def showGenre(genre_id):
-    # genre information is not part of Movie class, but stored in MovieGenre
-    # Thus join is necessary to get movies of a specific genre
-    movies = (session.query(Movie)
-                     .join(MovieGenre, Movie.id==MovieGenre.movie_id)
-                     .filter(MovieGenre.genre_id==genre_id)
-                     .order_by(desc(Movie.create_time))
-                     .all())
-    current_genre = session.query(Genre).filter(Genre.id==genre_id).one().genre
+    genre = (session.query(Genre)
+                     .filter(Genre.id==genre_id)
+                     .one())
+    # Get movies of a genre with backref
+    movies = genre.movies
     # Login button will be available if user is not logged in
     if 'username' not in login_session:
-        # Generate nonce for login functionality
-        state = stateGenerator()
         return render_template('public_movies.html', 
                                movies = movies, 
                                genres = genres, 
-                               current_genre = current_genre, 
-                               CLIENT_ID = CLIENT_ID, 
-                               state = state)
+                               current_genre = genre.genre, 
+                               CLIENT_ID = CLIENT_ID)
     # User logged in will be able to add new movies
     else:
         return render_template('movies.html', 
                                movies = movies, 
                                genres = genres, 
-                               current_genre = current_genre, 
+                               current_genre = genre.genre, 
                                username = login_session['username'])
 
 
@@ -154,54 +134,25 @@ def showGenre(genre_id):
 @app.route('/movie/<int:movie_id>/')
 def showMovieDetail(movie_id):
     movie = session.query(Movie).filter(Movie.id==movie_id).one()
-    creator = getUserInfo(movie.user_id)
-    # genre information is not part of Movie class, but stored in MovieGenre
-    # Thus join is necessary to get genres of a specific movie
-    current_genres = (session.query(Genre)
-                             .join(MovieGenre, Genre.id==MovieGenre.genre_id)
-                             .filter(MovieGenre.movie_id==movie.id)
-                             .all())
     # Login button will be available if user is not logged in
     if 'username' not in login_session:
-        # Generate nonce for login functionality
-        state = stateGenerator()
         return render_template('public_movie_detail.html', 
                                movie = movie, 
                                genres = genres, 
-                               creator = creator, 
-                               current_genres = current_genres, 
-                               CLIENT_ID = CLIENT_ID, 
-                               state = state)
-    # If the user is also the creator, he can edit and delete this movie
-    elif creator.id == login_session['user_id']:
-        # Generate nonce for deletion functionality
-        state = stateGenerator()
-        return render_template('movie_detail.html', 
-                               movie = movie, 
-                               genres = genres, 
-                               creator = creator, 
-                               current_genres = current_genres, 
-                               username = login_session['username'], 
-                               show_edit_btn = True, 
-                               state = state)
-    # If the user is not the creator, he can not edit or delete this movie
+                               CLIENT_ID = CLIENT_ID)
     else:
         return render_template('movie_detail.html', 
                                movie = movie, 
                                genres = genres, 
-                               creator = creator, 
-                               current_genres = current_genres, 
                                username = login_session['username'], 
-                               show_edit_btn = False)
+                               user_id = login_session['user_id'])
 
 
 # Users logged in can create a new movie
 @app.route('/movie/new/', methods=['GET', 'POST'])
+# Only users logged in can add new movie
+@login_required
 def addMovie():
-    # Only users logged in can add new movie
-    if 'username' not in login_session:
-        flash('To add a new movie, please login')
-        return redirect('/')
     # POST request, the user has submit the form
     if request.method == 'POST':
         # Get values for movie entry from the form
@@ -215,8 +166,16 @@ def addMovie():
         release_date = request.form['releaseDate']
         release_date = (datetime.strptime(release_date, '%Y-%m-%d') 
                             if release_date else None)
-        # Server-side form validation should go here
-        # Will be added in the future
+
+        # ============================================================
+        # TODO: 
+        # Database should not be modified unless form is valid
+        # Server-side form validation will go here
+        # ============================================================
+
+        current_genres = (session.query(Genre)
+                                 .filter(Genre.id.in_(genre_ids))
+                                 .all())
 
         # New movie entry with information from the form
         newMovie = Movie(
@@ -227,17 +186,12 @@ def addMovie():
             poster = poster, 
             youtube_id = youtube_id, 
             release_date = release_date, 
+            genres = current_genres, 
             user_id = login_session['user_id'])
         # Insert into database
         session.add(newMovie)
         session.commit()
-        # genre information is not part of Movie class, but stored in MovieGenre
-        # Thus entries describing genres of the movie should also be added
-        for genre_id in genre_ids:
-            genre_id = int(genre_id)
-            newMovieGenre = MovieGenre(movie_id=newMovie.id, genre_id=genre_id)
-            session.add(newMovieGenre)
-        session.commit()
+        flash('Movie "%s" added'%newMovie.title)
         return redirect('/')
     # GET request, render the page with form
     else:
@@ -248,61 +202,48 @@ def addMovie():
 
 # Users can edit movies that are created by them
 @app.route('/movie/<int:movie_id>/edit/', methods=['GET', 'POST'])
+# Only users logged in can edit movies
+@login_required
 def editMovie(movie_id):
     movie = session.query(Movie).filter(Movie.id==movie_id).one()
-    # genre information is not part of Movie class, but stored in MovieGenre
-    # Thus join is necessary to get genres of a movie
-    current_genres = (session.query(Genre)
-                             .join(MovieGenre, Genre.id==MovieGenre.genre_id)
-                             .filter(MovieGenre.movie_id==movie.id)
-                             .all())
-    current_genre_ids = [e.id for e in current_genres]
-    # Only users logged in can edit movies
-    if 'username' not in login_session:
-        flash('To edit an existing movie, please login')
-        return redirect('/')
     # Only the user who created this movie can edit it
     if movie.user_id != login_session['user_id']:
         flash('You can only edit your own movie')
         return redirect('/')
     # POST request, the user has submit the form
     if request.method == 'POST':
-        # Get values for movie entry from the form
-        title = request.form['title'] 
-        tmdb_id = int(request.form['tmdbID'])
-        imdb_id = request.form['imdbID']
-        overview = request.form['overview']
-        poster = request.form['poster']
-        youtube_id = request.form['youtubeID']
-        genre_ids = request.form.getlist('genres')
-        release_date = request.form['releaseDate']
-        release_date = datetime.strptime(release_date, '%Y-%m-%d') if release_date else None
-        # Server-side form validation should go here
-        # Will be added in the future
+        # ============================================================
+        # TODO
+        # Database should not be modified unless form is valid
+        # Server-side form validation will go here
+        # ============================================================
 
         # Edit the movie with information from the form
-        if title: 
-            movie.title = title
-        if tmdb_id:
-            movie.tmdb_id = tmdb_id
-        if imdb_id:
-            movie.imdb_id = imdb_id
-        if overview:
-            movie.overview = overview
-        if poster:
-            movie.poster = poster
-        if youtube_id:
-            movie.youtube_id = youtube_id
-        if release_date:
-            movie.release_date = release_date
+        if request.form['title']: 
+            movie.title = request.form['title']
+        if request.form['tmdbID']:
+            movie.tmdb_id = int(request.form['tmdbID'])
+        if request.form['imdbID']:
+            movie.imdb_id = request.form['imdbID']
+        if request.form['overview']:
+            movie.overview = request.form['overview']
+        if request.form['poster']:
+            movie.poster = request.form['poster']
+        if request.form['youtubeID']:
+            movie.youtube_id = request.form['youtubeID']
+        if request.form['releaseDate']:
+            try: 
+                movie.release_date = datetime.strptime(
+                                         request.form['releaseDate'], 
+                                         '%Y-%m-%d')
+            except:
+                movie.release_date = None
+        if request.form.getlist('genres'):
+            movie.genres = (session.query(Genre)
+                                   .filter(Genre.id.in_(
+                                       request.form.getlist('genres')))
+                                   .all())
         session.add(movie)
-        # Edit genre entries of this movie is a bit tricky by first deleting 
-        # genre info and then re-add new genre entries
-        session.query(MovieGenre).filter(MovieGenre.movie_id==movie.id).delete()
-        for genre_id in genre_ids:
-            genre_id = int(genre_id)
-            genre = MovieGenre(movie_id=movie.id, genre_id=genre_id)
-            session.add(genre)
         flash('"%s" Successfully Edited' % movie.title)
         session.commit()
         return redirect('/')
@@ -311,20 +252,15 @@ def editMovie(movie_id):
         return render_template('edit_movie.html', 
                                movie = movie, 
                                genres = genres, 
-                               current_genre_ids = current_genre_ids, 
                                username = login_session['username'])
 
 
 # Will delete a movie. Only POST method is allowed
 @app.route('/movie/<int:movie_id>/delete', methods=['POST'])
+# Only users logged in can delete movies
+@login_required
 def deleteMovie(movie_id):
     movie = session.query(Movie).filter(Movie.id==movie_id).one()
-    # Only users logged in can delete movies
-    if 'username' not in login_session:
-        response = make_response(
-            json.dumps('To delete an existing movie, please login'), 401)
-        response.headers['Content-Type'] = 'application/json'
-        return response
     # Only the user who created this movie can delete it
     if movie.user_id != login_session['user_id']:
         response = make_response(
@@ -333,16 +269,7 @@ def deleteMovie(movie_id):
         return response
     # Only POST method is allowed
     if request.method == 'POST':
-        state = request.data
-        # Validate nonce to prevent CSRF
-        if state != login_session['state']:
-            response = make_response(json.dumps('Nonces did not match'), 401)
-            response.headers['Content-Type'] = 'application/json'
-            return response
         session.delete(movie)
-        # genre information is not part of Movie class, but stored in MovieGenre
-        # Thus entries describing genres of the movie should also be deleted
-        session.query(MovieGenre).filter(MovieGenre.movie_id==movie_id).delete()
         flash('"%s" Successfully Deleted' % movie.title)
         session.commit()
         return 'Movie Deleted'
@@ -353,8 +280,7 @@ def createUser(login_session):
                    'email'], picture=login_session['picture'])
     session.add(newUser)
     session.commit()
-    user = session.query(User).filter_by(email=login_session['email']).one()
-    return user.id
+    return newUser.id
 
 
 def getUserInfo(user_id):
@@ -373,11 +299,6 @@ def getUserID(email):
 # Connect with google account. Only POST method is allowed
 @app.route('/gconnect', methods=['POST'])
 def gconnect():
-    # Validate state token
-    if request.args.get('state') != login_session['state']:
-        response = make_response(json.dumps('Invalid state parameter.'), 401)
-        response.headers['Content-Type'] = 'application/json'
-        return response
     # Obtain authorization code
     code = request.data
 
@@ -428,7 +349,7 @@ def gconnect():
         return response
 
     # Store the access token in the session for later use.
-    login_session['credentials'] = credentials
+    login_session['credentials'] = credentials.to_json()
     login_session['gplus_id'] = gplus_id
 
     # Get user info
@@ -464,6 +385,7 @@ def gdisconnect():
             json.dumps('Current user not connected.'), 401)
         response.headers['Content-Type'] = 'application/json'
         return response
+    credentials = OAuth2Credentials.from_json(credentials)
     access_token = credentials.access_token
     url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
     h = httplib2.Http()

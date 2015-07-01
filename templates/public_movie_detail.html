@@ -11,9 +11,9 @@
         <div class="col-sm-7">
             <p>{{movie.overview}}</p>
             <div>
-                {% for current_genre in current_genres %}
-                <a href="/genre/{{current_genre.id}}">
-                    <div class="label label-info genre-label"><span class="glyphicon glyphicon-tag"></span> {{current_genre.genre}}</div>
+                {% for genre in movie.genres %}
+                <a href="/genre/{{genre.id}}">
+                    <div class="label label-info genre-label"><span class="glyphicon glyphicon-tag"></span> {{genre.genre}}</div>
                 </a>
                 {% endfor %}
             </div>
@@ -38,7 +38,7 @@
         <div class="clearfix"></div>
         <label class="col-lg-2 col-lg-offset-1 col-md-3 col-md-offset-1">Added by: </label>
         <div class="col-lg-9 col-md-8">
-            <p>{{creator.name}}</p>
+            <p>{{movie.user.name}}</p>
         </div>
         <label class="col-lg-2 col-lg-offset-1 col-md-3 col-md-offset-1">External Link: </label>
         <div class="col-lg-9 col-md-8">

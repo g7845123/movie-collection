@@ -1,5 +1,5 @@
 http://flask.pocoo.org/
-http://werkzeug.pocoo.org/docs/0.10/contrib/atom/
+https://flask-seasurf.readthedocs.org/en/latest/
 http://getbootstrap.com/
 https://www.themoviedb.org/documentation/api
 http://startbootstrap.com/template-overviews/sb-admin/
@@ -11,3 +11,5 @@ http://stackoverflow.com/questions/426258/checking-a-checkbox-with-jquery
 https://en.wikipedia.org/wiki/Atom_(standard)
 http://www.favicon.cc/?action=icon&file_id=741844
 http://bootstraptour.com/
+http://werkzeug.pocoo.org/docs/0.10/contrib/atom/
+https://github.com/delfick/python-dict2xml
